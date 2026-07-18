@@ -1,0 +1,5 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+yt-dlp>=2025.1.15
+faster-whisper>=1.1.0
+openai>=1.50

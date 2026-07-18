@@ -1,0 +1,364 @@
+{
+  "name": "Discord AI Agent → Obsidian Notes",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1. Getting messages IN from Discord\n\nDiscord has no native outgoing webhook, and n8n's built-in Discord node is send-only. Two options to feed this Webhook node:\n\n**A) Community trigger node (easiest):** install `n8n-nodes-discord-trigger` (Settings → Community Nodes), then replace the Webhook + Normalize nodes with it.\n\n**B) Tiny bridge bot:** run a small Discord bot that POSTs `{ \"content\", \"channelId\", \"author\" }` to this webhook URL whenever a message mentions it.\n\nThe rest of the workflow works with either.",
+        "height": 340,
+        "width": 340
+      },
+      "id": "b1a7c001-0000-4000-8000-000000000001",
+      "name": "Sticky Note — Trigger",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-80, -420]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Credentials to attach after import\n\n• **Discord Webhook** credential on both Discord nodes (create a webhook in your Discord channel: Channel Settings → Integrations → Webhooks)\n• **OpenAI** credential on the chat model (or swap the node for Anthropic/Gemini/Ollama)\n• **SerpAPI** credential on the web search tool (or swap for another search tool)\n\n## 3. Video transcripts\n\nThe `get_video_transcript` tool points at a placeholder URL. Point it at a transcript service:\n• YouTube: any transcript API (e.g. Supadata, youtube-transcript.io)\n• Facebook: usually needs download + transcription (e.g. self-hosted yt-dlp + Whisper endpoint). Same tool, same `{video_url}` placeholder.\n\n## 4. Obsidian\n\nAn Obsidian vault is just a folder. Edit the path in **Write to Obsidian Vault** to your vault's folder (n8n must run on the same machine, or mount the vault into the Docker container). Alternative: Obsidian's *Local REST API* plugin + an HTTP Request node.",
+        "height": 620,
+        "width": 400
+      },
+      "id": "b1a7c001-0000-4000-8000-000000000002",
+      "name": "Sticky Note — Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [300, -560]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "discord-agent",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000010",
+      "name": "Discord Message Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "7f3d9c2a-5b64-4e8f-9a01-discordagent1",
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "content",
+              "value": "={{ $json.body?.content ?? $json.content ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "channelId",
+              "value": "={{ $json.body?.channelId ?? $json.channelId ?? 'default' }}",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "author",
+              "value": "={{ $json.body?.author ?? $json.author ?? 'unknown' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000011",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🤖 Request received from **{{ $json.author }}**:\n> {{ $json.content.slice(0, 180) }}\n\nWorking on it — I'll post the result here when done.",
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000012",
+      "name": "Acknowledge in Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalize Input').item.json.content }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a research assistant that users reach via Discord. You receive a single instruction and must complete it using your tools, then produce a markdown note for the user's Obsidian vault.\n\nYour tools:\n- web_search: search the web for current information\n- fetch_webpage: fetch the full content of a specific URL\n- get_video_transcript: fetch the transcript of a video (YouTube or Facebook) given its URL. Use this before summarizing any video.\n\nProcess:\n1. Understand the request. If it references a video URL, get its transcript first. If it needs current information, search the web, then fetch the most promising pages.\n2. Do the work: summarize, research, or answer as instructed.\n3. Produce your final answer as JSON with exactly these fields:\n   - title: a short, filename-safe title for the note (no slashes, colons or quotes)\n   - markdown: the complete Obsidian note. Start with YAML frontmatter (title, date, source URLs, tags), then a well-structured markdown summary with headings, key points, and citations/links to sources.\n   - reply: a short, friendly Discord message (max ~1500 chars) summarizing what you did and the key takeaway. Use Discord-flavored markdown.\n\nAlways fill all three fields, even for simple questions (the note then records your findings)."
+        }
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000013",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [680, 0]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000014",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [520, 260]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Normalize Input').item.json.channelId }}"
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000015",
+      "name": "Chat Memory (per channel)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [680, 260]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000016",
+      "name": "web_search",
+      "type": "@n8n/n8n-nodes-langchain.toolSerpApi",
+      "typeVersion": 1,
+      "position": [840, 260]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetch the full HTML/text content of a specific webpage. Use after web_search to read a promising result in full.",
+        "method": "GET",
+        "url": "{url}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "url",
+              "description": "The full URL of the webpage to fetch, including https://"
+            }
+          ]
+        }
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000017",
+      "name": "fetch_webpage",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1000, 260]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get the transcript of a video from YouTube or Facebook. Pass the full video URL. Returns the spoken content as text. Always use this before summarizing a video.",
+        "method": "GET",
+        "url": "https://YOUR-TRANSCRIPT-SERVICE.example.com/transcript?url={video_url}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "video_url",
+              "description": "The full URL of the YouTube or Facebook video"
+            }
+          ]
+        }
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000018",
+      "name": "get_video_transcript",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1160, 260]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"title\": \"How Solid State Batteries Work\",\n  \"markdown\": \"---\\ntitle: How Solid State Batteries Work\\ndate: 2026-07-18\\nsource: https://example.com\\ntags: [summary, video]\\n---\\n\\n# Summary\\n\\nKey points here...\",\n  \"reply\": \"Done! I summarized the video — key takeaway: ... Full note saved to your vault.\"\n}"
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000019",
+      "name": "Structured Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [1320, 260]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "output.markdown",
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000020",
+      "name": "Note → File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ '/data/obsidian-vault/AI Summaries/' + $now.format('yyyy-MM-dd') + ' - ' + ($('AI Agent').item.json.output.title || 'summary').replace(/[\\\\/:*?\"<>|#^\\[\\]]/g, '').trim() + '.md' }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000021",
+      "name": "Write to Obsidian Vault",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1260, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $('AI Agent').item.json.output.reply }}\n\n📝 Saved to vault: `{{ $('Write to Obsidian Vault').item.json.fileName }}`",
+        "options": {}
+      },
+      "id": "a0e1f2d3-1111-4111-8111-000000000022",
+      "name": "Send Completion to Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [1480, 0]
+    }
+  ],
+  "connections": {
+    "Discord Message Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge in Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge in Discord": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Note → File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Note → File": {
+      "main": [
+        [
+          {
+            "node": "Write to Obsidian Vault",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to Obsidian Vault": {
+      "main": [
+        [
+          {
+            "node": "Send Completion to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory (per channel)": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_webpage": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_video_transcript": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

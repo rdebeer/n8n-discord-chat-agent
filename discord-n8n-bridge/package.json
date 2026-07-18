@@ -1,0 +1,16 @@
+{
+  "name": "discord-n8n-bridge",
+  "version": "1.0.0",
+  "description": "Forwards Discord messages to an n8n webhook",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}
