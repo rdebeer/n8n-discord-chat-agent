@@ -64,11 +64,13 @@ Discord-Chat-Agent/
 
 ## Prerequisites
 
-- **Docker Desktop for Windows** (with your `D:` drive enabled under Settings → Resources → File Sharing, if listed)
+- **Docker Desktop** for your platform:
+  - *Windows:* enable your `D:` drive under Settings → Resources → File Sharing, if listed there.
+  - *macOS (e.g. a Mac Mini):* works out of the box for anything under `/Users` (shared by default). Apple Silicon (M-series) is fully supported — every image used here is multi-arch.
 - A **Discord server** you manage
 - **OpenAI API key** (for the agent's chat model; also speeds up transcription if provided)
 - **SerpAPI key** — free tier at https://serpapi.com (100 searches/month) — for the web search tool
-- Your **Obsidian vault** path, e.g. `D:/Obsidian/MyVault`
+- Your **Obsidian vault** path, e.g. `D:/Obsidian/MyVault` (Windows) or `/Users/you/Obsidian/MyVault` (macOS)
 
 ---
 
@@ -89,10 +91,20 @@ Discord-Chat-Agent/
 ## Step 2 — Prepare the two services
 
 ### 2.1 Bridge bot config
+
+**Windows (PowerShell):**
 ```powershell
 cd "D:\Devlaps\AI-Experiments\n8n - workflows\Discord-Chat-Agent\discord-n8n-bridge\src"
 copy .env.example .env
 ```
+
+**macOS (Terminal):**
+```bash
+cd "/Users/you/Devlaps/AI-Experiments/n8n - workflows/Discord-Chat-Agent/discord-n8n-bridge/src"
+cp .env.example .env
+```
+> macOS tip: Finder hides dotfiles like `.env` — press **Cmd+Shift+.** to show them,
+> or edit from the terminal (`nano .env`).
 Edit `.env`:
 ```
 DISCORD_BOT_TOKEN=<token from step 1.2>
@@ -136,7 +148,9 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       # ▼ Mount your Obsidian vault INTO THE N8N CONTAINER (n8n writes the notes)
-      - "D:/Obsidian/MyVault:/data/obsidian-vault"
+      #   Keep ONE of the following, edited to your real vault path:
+      - "D:/Obsidian/MyVault:/data/obsidian-vault"                # Windows
+      # - "/Users/you/Obsidian/MyVault:/data/obsidian-vault"      # macOS
 
   discord-bridge:
     build: ./discord-n8n-bridge/src
@@ -162,16 +176,34 @@ volumes:
 ```
 
 Then, from the project root:
+
+**Windows (PowerShell):**
 ```powershell
 cd "D:\Devlaps\AI-Experiments\n8n - workflows\Discord-Chat-Agent"
 docker compose up -d --build
 ```
 
-Check all three are up: `docker compose ps` — then open n8n at http://localhost:5678.
+**macOS (Terminal):**
+```bash
+cd "/Users/you/Devlaps/AI-Experiments/n8n - workflows/Discord-Chat-Agent"
+docker compose up -d --build
+```
 
-> **Windows notes:** use forward slashes in volume paths (`D:/Obsidian/...`), and keep
-> quotes around any path — your project path contains spaces. The bridge won't do
-> anything visible until the workflow is active; that's expected.
+Check all three are up: `docker compose ps` — then open n8n at http://localhost:5678 (from another machine on your network, use the host's IP or hostname, e.g. `http://mac-mini.local:5678`).
+
+> **Windows notes:** use forward slashes in volume paths inside docker-compose.yml
+> (`D:/Obsidian/...`), and keep quotes around any path containing spaces
+> (`n8n - workflows`).
+>
+> **macOS notes:** volume paths are used as-is (`/Users/...`); quotes still needed for
+> paths with spaces. If iCloud syncs your vault (`~/Library/Mobile Documents/...`),
+> prefer a vault stored in a plain local folder — iCloud's placeholder files don't play
+> well with Docker bind mounts. On Apple Silicon, Whisper runs CPU-only inside Docker
+> (no GPU/Neural Engine passthrough) — M-series CPUs handle `base`/`small` fine, but
+> set `OPENAI_API_KEY` if long videos feel slow.
+>
+> **Both:** the bridge won't do anything visible until the workflow is active; that's
+> expected.
 
 ---
 
@@ -233,8 +265,8 @@ Every request produces a dated note in `AI Summaries/` with YAML frontmatter (ti
 | Note not appearing in vault | Vault volume mounted on the wrong service (must be `n8n`), path typo, or `AI Summaries` folder missing. Check the **Write to Obsidian Vault** node error. |
 | n8n asks about node versions on import | Fine — accept; the workflow uses broadly compatible node versions. |
 
-Useful commands:
-```powershell
+Useful commands (identical on Windows and macOS):
+```bash
 docker compose logs -f discord-bridge      # watch the bot
 docker compose logs -f transcript-service  # watch downloads/transcription
 docker compose restart transcript-service
