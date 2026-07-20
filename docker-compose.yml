@@ -1,0 +1,49 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    hostname: 87bc610e7045
+    user: node
+    restart: "no"
+    network_mode: bridge
+    runtime: runc
+    working_dir: /home/node
+    ports:
+      - "5678:5678"
+    environment:
+      PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      NODE_ENV: production
+      SHELL: /bin/sh
+      N8N_PROTOCOL: https
+      GENERIC_TIMEZONE: Africa/Johannesburg
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+      NODE_PATH: /usr/local/lib/node_modules
+      N8N_RELEASE_TYPE: stable
+      WEBHOOK_URL: https://tashikins.com/
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_RUNNERS_ENABLED: "true"
+      NODE_VERSION: 24.16.0-r0
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - "/Users/rdebeer/Library/CloudStorage/GoogleDrive-mrrenedebeer@gmail.com/Other computers/My laptop/MyNotes:/data/obsidian-vault"
+      # Add your MyNotes bind mount here, e.g.:
+      # - "/Users/rdebeer/Library/CloudStorage/GoogleDrive-mrrenedebeer@gmail.com/Other computers/My laptop/MyNotes:/data/Obsidian-vault"
+  discord-bridge:
+    build: ./discord-n8n-bridge
+    restart: unless-stopped
+    env_file:
+      - ./discord-n8n-bridge/.env
+    depends_on:
+      - n8n
+
+  transcript-service:
+    build: ./transcript-service
+    restart: unless-stopped
+    environment:
+      - WHISPER_MODEL=base              # tiny | base | small | medium
+      - MAX_DURATION_SECONDS=5400
+      - COOKIES_FILE=/data/cookies.txt  # for private/login-gated Facebook videos
+    volumes:
+     - ./transcript-service/cookies.txt:/data/cookies.txt:ro
+volumes:
+  n8n_data:
